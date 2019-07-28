@@ -1,5 +1,7 @@
 # e008_flutter_write_reorderable_listview_state_to_file_e004base
 
+![app screen record](docs/screen_record.gif)
+
 ## Step 1
 
     Future sortTasksSaveState() async {
