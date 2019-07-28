@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
-
 void main() {
   runApp(MyApp());
 }
@@ -126,13 +125,18 @@ class TaskOpj {
     return data;
   }
 }
- 
+
 class TasksPageWidget extends StatefulWidget {
   @override
   _TasksPageWidgetState createState() => _TasksPageWidgetState();
 }
 
 class _TasksPageWidgetState extends State<TasksPageWidget> {
+
+  var tasks = List<TaskOpj>();
+
+  List<String> tasksOrder;
+
   @override
   void initState() {
     super.initState();
@@ -147,13 +151,7 @@ class _TasksPageWidgetState extends State<TasksPageWidget> {
 
   Future sortTasks() async {
     if (tasks != null) {
-      if (tasksOrder == null) {
-        tasksOrder = await sortTasksGet();
-        //  tasksOrder = List<String>();
-        // for (var i = 0; i < tasks.length; i++) {
-        //   tasksOrder.insert(i, tasks[i].guid);
-        // }
-      }
+      tasksOrder = await sortTasksGetState();
       var newList = List<TaskOpj>();
       for (var i = 0; i < tasksOrder.length; i++) {
         var task = tasks.firstWhere((t) => t.guid == tasksOrder[i],
@@ -168,7 +166,11 @@ class _TasksPageWidgetState extends State<TasksPageWidget> {
     }
   }
 
-  Future sortTasksSave(List<String> list) async {
+  Future sortTasksSaveState() async {
+    await sortTasksSaveTofile(tasks.map((m) => m.guid).toList());
+  }
+
+  Future sortTasksSaveTofile(List<String> list) async {
     try {
       var listMap = List<Map<String, dynamic>>();
       for (var i = 0; i < list.length; i++) {
@@ -188,13 +190,13 @@ class _TasksPageWidgetState extends State<TasksPageWidget> {
     }
   }
 
-  Future<List<String>> sortTasksGet() async {
+  Future<List<String>> sortTasksGetState() async {
     var list = List<String>();
     try {
       Directory appDocDir = await getApplicationDocumentsDirectory();
       String appDocPath = appDocDir.path;
       var file = File(('$appDocPath/sortTasks.json'));
-      var fileText = await file.readAsStringSync();
+      var fileText = file.readAsStringSync();
       final jsonOpj = json.decode(fileText);
       jsonOpj
           .forEach((element) => list.insert(element['order'], element['guid']));
@@ -204,8 +206,6 @@ class _TasksPageWidgetState extends State<TasksPageWidget> {
     return list;
   }
 
-  var tasks = List<TaskOpj>();
-  List<String> tasksOrder;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -219,31 +219,8 @@ class _TasksPageWidgetState extends State<TasksPageWidget> {
         ],
       ),
       body: ReorderableListView(
-        children: <Widget>[
-          for (final task in tasks)
-            TaskWidget(
-              key: Key(task.guid),
-              taskOpj: task,
-              notifyParent: refresh,
-            ),
-        ],
-        onReorder: (oldIndex, newIndex) {
-          if (newIndex > oldIndex) {
-            newIndex -= 1;
-          }
-          if (tasksOrder != null) {
-            final String guid = tasksOrder.removeAt(oldIndex);
-            tasksOrder.insert(newIndex, guid);
-          }
-          setState(() {
-            if (newIndex > oldIndex) {
-              newIndex -= 1;
-            }
-            final TaskOpj item = tasks.removeAt(oldIndex);
-            tasks.insert(newIndex, item);
-          });
-          sortTasksSave(tasks.map((m) => m.guid).toList());
-        },
+        children: _children(),
+        onReorder: _reorder,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
@@ -261,6 +238,36 @@ class _TasksPageWidgetState extends State<TasksPageWidget> {
       ),
     );
   }
+
+  List<Widget> _children() {
+    var children = <Widget>[];
+    for (final task in tasks)
+      children.add(
+        TaskWidget(
+          key: Key(task.guid),
+          taskOpj: task,
+          notifyParent: refresh,
+        ),
+      );
+    return children;
+  }
+
+  void _reorder(oldIndex, newIndex) {
+    try {
+      setState(() {
+        if (newIndex > oldIndex) {
+          newIndex -= 1;
+        }
+        final TaskOpj item = tasks.removeAt(oldIndex);
+        tasks.insert(newIndex, item);
+      });
+      sortTasksSaveState();
+    } catch (e) {
+      print(e);
+    }
+  }
+
+
 }
 
 class TaskWidget extends StatelessWidget {
@@ -451,4 +458,3 @@ class _TaskAddPageWidgetState extends State<TaskAddPageWidget> {
     Navigator.pop(context);
   }
 }
-
